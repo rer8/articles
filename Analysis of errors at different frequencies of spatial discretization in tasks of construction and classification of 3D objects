@@ -1,0 +1,25 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Генерація 3D об'єкта: сфера
+def generate_sphere(resolution):
+    u = np.linspace(0, 2 * np.pi, resolution)
+    v = np.linspace(0, np.pi, resolution)
+    x = np.outer(np.cos(u), np.sin(v))
+    y = np.outer(np.sin(u), np.sin(v))
+    z = np.outer(np.ones(np.size(u)), np.cos(v))
+    return x, y, z
+
+# Візуалізація сфери
+def plot_sphere(x, y, z, title):
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    ax.plot_surface(x, y, z, color='b', alpha=0.6, edgecolor='k')
+    ax.set_title(title)
+    plt.show()
+
+# Аналіз дискретизації
+resolutions = [10, 30, 100]
+for res in resolutions:
+    x, y, z = generate_sphere(res)
+    plot_sphere(x, y, z, f"Resolution: {res}")
