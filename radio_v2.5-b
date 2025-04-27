@@ -1,0 +1,55 @@
+from PIL import Image
+import torch
+from torchvision.transforms.functional import pil_to_tensor
+from torch.nn import functional as F
+
+# Виберіть версію моделі RADIO (наприклад, 'radio_v2.5-b' для меншої моделі)
+model_version = "radio_v2.5-b"
+
+# Визначення пристрою для обчислень (спочатку спробуйте CUDA, потім MPS, потім CPU)
+device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+print(f"Використовується пристрій: {device}")
+
+# Завантаження попередньо навченої моделі RADIO з TorchHub
+try:
+    model = torch.hub.load('NVlabs/RADIO', 'radio_model', version=model_version, progress=False, skip_validation=True)
+    model.to(device).eval()
+except Exception as e:
+    print(f"Помилка при завантаженні моделі: {e}")
+    print("Будь ласка, перевірте підключення до Інтернету та назву моделі.")
+    exit()
+
+# Завантаження зображення
+image_path = '4.jpg'  # Замініть на шлях до вашого зображення
+try:
+    img = Image.open(image_path).convert('RGB')
+    img_tensor = pil_to_tensor(img).float().div(255.0).unsqueeze(0).to(device) # Перетворення в тензор, нормалізація та додавання розмірності батчу
+except FileNotFoundError:
+    print(f"Помилка: Файл зображення за шляхом '{image_path}' не знайдено.")
+    exit()
+except Exception as e:
+    print(f"Помилка при відкритті або обробці зображення: {e}")
+    exit()
+
+# Зміна розміру зображення до найближчого підтримуваного розміру
+try:
+    nearest_res = model.get_nearest_supported_resolution(*img_tensor.shape[-2:])
+    img_resized = F.interpolate(img_tensor, nearest_res, mode='bilinear', align_corners=False)
+except AttributeError:
+    print("Попередження: Метод 'get_nearest_supported_resolution' не знайдено в даній версії моделі.")
+    img_resized = img_tensor # Продовжити без зміни розміру (може призвести до помилки, якщо розмір несумісний)
+except Exception as e:
+    print(f"Помилка при зміні розміру зображення: {e}")
+    exit()
+
+# Отримання зведених та просторових ознак
+with torch.no_grad():
+    try:
+        summary_features, spatial_features = model(img_resized)
+    except Exception as e:
+        print(f"Помилка при аналізі зображення моделлю: {e}")
+        exit()
+
+# Виведення розмірів отриманих ознак
+print("Розмір зведених ознак:", summary_features.shape)
+print("Розмір просторових ознак:", spatial_features.shape)
